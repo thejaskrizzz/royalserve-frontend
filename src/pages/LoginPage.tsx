@@ -4,7 +4,6 @@ import {
   TextField,
   Typography,
   Box,
-  Link,
   Alert,
   CircularProgress,
   InputAdornment,
@@ -12,7 +11,7 @@ import {
   Paper,
 } from "@mui/material";
 import { Email, Lock, Visibility, VisibilityOff } from "@mui/icons-material";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { COLORS } from "../theme/colors"; // IMPORTANT
 
@@ -53,7 +52,7 @@ const LoginPage: React.FC = () => {
       }}
     >
       <Container maxWidth="xs">
-        
+
         {/* Branding */}
         <Box sx={{ textAlign: "center", mb: 5 }}>
           <Box
