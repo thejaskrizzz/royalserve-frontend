@@ -8,8 +8,6 @@ import {
   CircularProgress,
   Alert,
   Chip,
-  Divider,
-  Grid,
   Fade,
   Slide,
 } from "@mui/material";
@@ -26,7 +24,6 @@ import {
   Assessment,
   Timeline,
   PieChart,
-  BarChart,
   ArrowUpward,
   ArrowDownward,
   TrendingFlat,
@@ -58,8 +55,6 @@ import { COLORS } from "../theme/colors";
 
 // Import Recharts components
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
   BarChart as RechartsBarChart,
@@ -71,12 +66,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
-  RadialBarChart,
-  RadialBar,
-  ScatterChart,
-  Scatter,
 } from "recharts";
 
 /* -------------------------------------------------------
@@ -100,10 +90,10 @@ const KpiCard = ({
   color?: string;
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   const ic = React.cloneElement(icon, {
-    sx: { 
-      fontSize: 32, 
+    sx: {
+      fontSize: 32,
       color: color,
       transition: 'all 0.3s ease',
       transform: isHovered ? 'scale(1.1)' : 'scale(1)',
@@ -132,7 +122,7 @@ const KpiCard = ({
           borderRadius: 4,
           background: `linear-gradient(135deg, ${COLORS.surfaceAlt} 0%, ${COLORS.surface} 100%)`,
           border: `1px solid ${COLORS.border}`,
-          boxShadow: isHovered 
+          boxShadow: isHovered
             ? `0 8px 32px rgba(76,212,255,0.3), 0 0 20px ${COLORS.background}`
             : `0 0 15px ${COLORS.background}`,
           transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -235,10 +225,10 @@ const MiniStat = ({
   trend?: 'up' | 'down' | 'neutral';
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   const ic = React.cloneElement(icon, {
-    sx: { 
-      fontSize: 24, 
+    sx: {
+      fontSize: 24,
       color: color,
       transition: 'all 0.3s ease',
     },
@@ -293,14 +283,14 @@ const MiniStat = ({
 /* -------------------------------------------------------
     CHART CONTAINER COMPONENT
 --------------------------------------------------------*/
-const ChartContainer = ({ 
-  title, 
-  children, 
+const ChartContainer = ({
+  title,
+  children,
   icon,
-  subtitle 
-}: { 
-  title: string; 
-  children: React.ReactNode; 
+  subtitle
+}: {
+  title: string;
+  children: React.ReactNode;
   icon?: React.ReactElement;
   subtitle?: string;
 }) => (
@@ -388,17 +378,17 @@ const Dashboard: React.FC = () => {
       const endDate = new Date();
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() - 6); // Last 6 months
-      
+
       const dailyData = await salesApi.getDailyReport(
         startDate.toISOString().split('T')[0],
         endDate.toISOString().split('T')[0]
       );
-      
+
       // Group daily data by month for the area chart
       const monthlyData = dailyData.reduce((acc: any[], daily: any) => {
         const month = new Date(daily.date).toLocaleString('default', { month: 'short' });
         const existingMonth = acc.find(item => item.name === month);
-        
+
         if (existingMonth) {
           existingMonth.sales += daily.totalSales || 0;
           existingMonth.profit += daily.profit || 0;
@@ -413,7 +403,7 @@ const Dashboard: React.FC = () => {
         }
         return acc;
       }, []);
-      
+
       setDailySalesData(monthlyData);
     } catch (error) {
       console.error('Error fetching daily sales data:', error);
@@ -448,11 +438,7 @@ const Dashboard: React.FC = () => {
     { name: 'Out of Stock', value: productStats?.outOfStockProducts || 0, color: COLORS.danger },
   ];
 
-  const generateRadialData = () => [
-    { name: 'Sales', value: saleStats?.totalSales || 0, fill: COLORS.success },
-    { name: 'Quotes', value: quoteStats?.totalQuoteValue || 0, fill: COLORS.accent },
-    { name: 'Expenses', value: expenseStats?.totalAmount || 0, fill: COLORS.danger },
-  ];
+
 
   useEffect(() => {
     const load = async () => {
@@ -482,7 +468,7 @@ const Dashboard: React.FC = () => {
             totalCategories: [
               ...new Set(response.products.map((p: any) => p.category)),
             ].length,
-            averagePrice: response.products.length > 0 
+            averagePrice: response.products.length > 0
               ? response.products.reduce((sum, p: any) => sum + (p.sellingPrice || 0), 0) / response.products.length
               : 0
           })),
@@ -524,7 +510,7 @@ const Dashboard: React.FC = () => {
   const currency = settings?.currency || "USD";
   const monthlyData = dailySalesData.length > 0 ? dailySalesData : generateMonthlyData();
   const pieData = generatePieData();
-  const radialData = generateRadialData();
+
 
   return (
     <Box
@@ -632,44 +618,44 @@ const Dashboard: React.FC = () => {
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={monthlyData}>
-              <defs>
-                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={COLORS.accent} stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor={COLORS.accent} stopOpacity={0.1}/>
-                </linearGradient>
-                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={COLORS.success} stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor={COLORS.success} stopOpacity={0.1}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} opacity={0.3} />
-              <XAxis dataKey="name" stroke={COLORS.textSecondary} />
-              <YAxis stroke={COLORS.textSecondary} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: COLORS.surfaceAlt, 
-                  border: `1px solid ${COLORS.border}`,
-                  borderRadius: 8,
-                }}
-                labelStyle={{ color: COLORS.textPrimary }}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="sales" 
-                stroke={COLORS.accent} 
-                fillOpacity={1} 
-                fill="url(#colorSales)"
-                strokeWidth={2}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="profit" 
-                stroke={COLORS.success} 
-                fillOpacity={1} 
-                fill="url(#colorProfit)"
-                strokeWidth={2}
-              />
-            </AreaChart>
+                <defs>
+                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={COLORS.accent} stopOpacity={0.8} />
+                    <stop offset="95%" stopColor={COLORS.accent} stopOpacity={0.1} />
+                  </linearGradient>
+                  <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={COLORS.success} stopOpacity={0.8} />
+                    <stop offset="95%" stopColor={COLORS.success} stopOpacity={0.1} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} opacity={0.3} />
+                <XAxis dataKey="name" stroke={COLORS.textSecondary} />
+                <YAxis stroke={COLORS.textSecondary} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: COLORS.surfaceAlt,
+                    border: `1px solid ${COLORS.border}`,
+                    borderRadius: 8,
+                  }}
+                  labelStyle={{ color: COLORS.textPrimary }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="sales"
+                  stroke={COLORS.accent}
+                  fillOpacity={1}
+                  fill="url(#colorSales)"
+                  strokeWidth={2}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="profit"
+                  stroke={COLORS.success}
+                  fillOpacity={1}
+                  fill="url(#colorProfit)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           )}
         </ChartContainer>
@@ -695,9 +681,9 @@ const Dashboard: React.FC = () => {
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: COLORS.surfaceAlt, 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: COLORS.surfaceAlt,
                   border: `1px solid ${COLORS.border}`,
                   borderRadius: 8,
                 }}
@@ -742,9 +728,9 @@ const Dashboard: React.FC = () => {
               <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} opacity={0.3} />
               <XAxis dataKey="status" stroke={COLORS.textSecondary} />
               <YAxis stroke={COLORS.textSecondary} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: COLORS.surfaceAlt, 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: COLORS.surfaceAlt,
                   border: `1px solid ${COLORS.border}`,
                   borderRadius: 8,
                 }}
@@ -824,35 +810,35 @@ const Dashboard: React.FC = () => {
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
           <Chip
             label={`Draft: ${quoteStats?.draftQuotes || 0}`}
-            sx={{ 
-              bgcolor: `${COLORS.surface}88`, 
+            sx={{
+              bgcolor: `${COLORS.surface}88`,
               color: COLORS.textPrimary,
               border: `1px solid ${COLORS.border}`,
               '&:hover': { bgcolor: `${COLORS.surface}CC` }
             }}
           />
-          <Chip 
+          <Chip
             label={`Sent: ${quoteStats?.sentQuotes || 0}`}
-            sx={{ 
-              bgcolor: `${COLORS.accent}22`, 
+            sx={{
+              bgcolor: `${COLORS.accent}22`,
               color: COLORS.accent,
               border: `1px solid ${COLORS.accent}44`,
               '&:hover': { bgcolor: `${COLORS.accent}33` }
             }}
           />
-          <Chip 
+          <Chip
             label={`Accepted: ${quoteStats?.acceptedQuotes || 0}`}
-            sx={{ 
-              bgcolor: `${COLORS.success}22`, 
+            sx={{
+              bgcolor: `${COLORS.success}22`,
               color: COLORS.success,
               border: `1px solid ${COLORS.success}44`,
               '&:hover': { bgcolor: `${COLORS.success}33` }
             }}
           />
-          <Chip 
+          <Chip
             label={`Rejected: ${quoteStats?.rejectedQuotes || 0}`}
-            sx={{ 
-              bgcolor: `${COLORS.danger}22`, 
+            sx={{
+              bgcolor: `${COLORS.danger}22`,
               color: COLORS.danger,
               border: `1px solid ${COLORS.danger}44`,
               '&:hover': { bgcolor: `${COLORS.danger}33` }
@@ -866,7 +852,7 @@ const Dashboard: React.FC = () => {
             Conversion Rate
           </Typography>
           <Typography sx={{ fontSize: 24, fontWeight: 700, color: COLORS.accent }}>
-            {quoteStats?.sentQuotes ? 
+            {quoteStats?.sentQuotes ?
               Math.round(((quoteStats?.acceptedQuotes || 0) / quoteStats?.sentQuotes) * 100) : 0}%
           </Typography>
         </Box>
