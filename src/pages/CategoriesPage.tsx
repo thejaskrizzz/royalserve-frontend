@@ -2,10 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   CircularProgress,
-  Container,
   FormControl,
   IconButton,
   InputAdornment,
@@ -23,8 +20,6 @@ import {
   Typography,
   Alert,
   Fade,
-  Divider,
-  Avatar,
   Chip,
   Menu,
   Dialog,
@@ -53,7 +48,7 @@ import {
   TrendingFlat
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { categoryApi, companyApi, quoteApi, purchaseOrderApi, productApi, salesApi, expenseApi } from '../api';
+import { categoryApi, companyApi, quoteApi, purchaseOrderApi, salesApi, expenseApi } from '../api';
 import { Category, CategoryFilters, CategoryStats } from '../types';
 import { formatCurrency } from '../utils/currency';
 import { COLORS } from '../theme/colors';
@@ -64,14 +59,14 @@ const CategoriesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<CategoryStats | null>(null);
-  
+
   // Additional metrics from Dashboard
   const [poStats, setPoStats] = useState<any>(null);
   const [quoteStats, setQuoteStats] = useState<any>(null);
   const [saleStats, setSaleStats] = useState<any>(null);
   const [expenseStats, setExpenseStats] = useState<any>(null);
   const [generalStats, setGeneralStats] = useState<any>(null);
-  
+
   const [filters, setFilters] = useState<CategoryFilters>({
     search: '',
     isActive: '',
@@ -127,12 +122,12 @@ const CategoriesPage: React.FC = () => {
         expenseApi.getStats(),
         companyApi.getStats()
       ]);
-      
+
       setPoStats(poData);
       setSaleStats(salesData);
       setExpenseStats(expenseData);
       setGeneralStats(companyData);
-      
+
       // For quotes, we'll calculate from the quotes list
       const quotesResponse = await quoteApi.getQuotes();
       const quotes = quotesResponse.quotes;
@@ -178,10 +173,10 @@ const CategoriesPage: React.FC = () => {
     color?: string;
   }) => {
     const [isHovered, setIsHovered] = useState(false);
-    
+
     const ic = React.cloneElement(icon, {
-      sx: { 
-        fontSize: 32, 
+      sx: {
+        fontSize: 32,
         color: color,
         transition: 'all 0.3s ease',
         transform: isHovered ? 'scale(1.1)' : 'scale(1)',
@@ -279,10 +274,10 @@ const CategoriesPage: React.FC = () => {
     trend?: 'up' | 'down' | 'neutral';
   }) => {
     const [isHovered, setIsHovered] = useState(false);
-    
+
     const ic = React.cloneElement(icon, {
-      sx: { 
-        fontSize: 24, 
+      sx: {
+        fontSize: 24,
         color: color,
         transition: 'all 0.3s ease',
       },
@@ -496,7 +491,7 @@ const CategoriesPage: React.FC = () => {
                 color={COLORS.accent}
               />
             </Box>
-            
+
             {/* Customer Value */}
             <KpiCard
               label="Customer Value"
@@ -764,7 +759,7 @@ const CategoriesPage: React.FC = () => {
         <DialogTitle>Delete Category</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the category "{selectedCategory?.name}"? 
+            Are you sure you want to delete the category "{selectedCategory?.name}"?
             This action cannot be undone.
           </Typography>
         </DialogContent>
