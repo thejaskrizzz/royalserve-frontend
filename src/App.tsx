@@ -42,6 +42,10 @@ import ExpenseForm from "./components/ExpenseForm";
 import SettingsPage from "./pages/SettingsPage";
 import TaxSettingsPage from "./pages/TaxSettingsPage";
 import CompanyPage from "./pages/CompanyPage";
+import StatementOfAccountPage from "./pages/StatementOfAccountPage";
+import CreditNotesPage from "./pages/CreditNotesPage";
+import CreditNoteView from "./pages/CreditNoteView";
+import CreditNoteForm from "./components/CreditNoteForm";
 
 import Layout from "./components/Layout";
 
@@ -138,6 +142,17 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <Layout>
               <InvoicePage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/statement-of-account"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <StatementOfAccountPage />
             </Layout>
           </ProtectedRoute>
         }
@@ -358,6 +373,39 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <Layout>
               <SalesForm />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/credit-notes"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <CreditNotesPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/credit-notes/new"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <CreditNoteForm />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/credit-notes/:id"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <CreditNoteView />
             </Layout>
           </ProtectedRoute>
         }

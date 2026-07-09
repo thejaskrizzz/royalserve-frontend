@@ -22,6 +22,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ customer, onSave, onCancel 
     email: '',
     phone: '',
     companyName: '',
+    vatNumber: '',
     address: {
       street: '',
       city: '',
@@ -43,6 +44,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ customer, onSave, onCancel 
         email: customer.email,
         phone: customer.phone || '',
         companyName: customer.companyName || '',
+        vatNumber: customer.vatNumber || '',
         address: {
           street: customer.address.street || '',
           city: customer.address.city || '',
@@ -170,14 +172,25 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ customer, onSave, onCancel 
             Company Information
           </Typography>
         </Box>
-        <Box>
-          <TextField
-            fullWidth
-            label="Company Name"
-            name="companyName"
-            value={formData.companyName}
-            onChange={handleChange}
-          />
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
+            <TextField
+              fullWidth
+              label="Company Name"
+              name="companyName"
+              value={formData.companyName}
+              onChange={handleChange}
+            />
+          </Box>
+          <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
+            <TextField
+              fullWidth
+              label="VAT Number"
+              name="vatNumber"
+              value={formData.vatNumber || ''}
+              onChange={handleChange}
+            />
+          </Box>
         </Box>
 
         {/* Address */}

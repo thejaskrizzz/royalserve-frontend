@@ -220,6 +220,7 @@ const CustomersPage: React.FC = () => {
                 <TableCell>Tags</TableCell>
                 <TableCell>Total Quotes</TableCell>
                 <TableCell>Total Value</TableCell>
+                <TableCell>Wallet Credit</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Created</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -282,6 +283,9 @@ const CustomersPage: React.FC = () => {
                     </TableCell>
                     <TableCell>{customer.totalQuotes}</TableCell>
                     <TableCell>{formatCurrency(customer.totalValue, settings?.currency || 'USD')}</TableCell>
+                    <TableCell sx={{ color: customer.creditBalance && customer.creditBalance > 0 ? 'success.main' : 'inherit', fontWeight: customer.creditBalance && customer.creditBalance > 0 ? 600 : 'normal' }}>
+                      {customer.creditBalance && customer.creditBalance > 0 ? formatCurrency(customer.creditBalance, settings?.currency || 'USD') : '-'}
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={customer.isActive ? 'Active' : 'Inactive'}

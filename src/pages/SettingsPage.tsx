@@ -11,7 +11,9 @@ import {
   Select,
   MenuItem,
   Avatar,
-  Paper
+  Paper,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import {
   Save,
@@ -20,7 +22,8 @@ import {
   Language,
   Schedule,
   Upload,
-  AttachMoney
+  AttachMoney,
+  Email
 } from '@mui/icons-material';
 import { useCompany } from '../contexts/CompanyContext';
 import { companyApi } from '../api';
@@ -408,6 +411,48 @@ const SettingsPage: React.FC = () => {
                   helperText="Number of days quotes remain valid (default: 14 days)"
                 />
 
+                <TextField
+                  fullWidth
+                  label="Credit Note Prefix"
+                  value={localSettings?.creditNotePrefix || 'CN'}
+                  onChange={(e) => handleSettingsChange('creditNotePrefix', e.target.value)}
+                  placeholder="CN"
+                />
+
+                <TextField
+                  fullWidth
+                  label="Next Credit Note Number"
+                  type="number"
+                  value={localSettings?.nextCreditNoteNumber || 1}
+                  onChange={(e) => handleSettingsChange('nextCreditNoteNumber', parseInt(e.target.value) || 1)}
+                  inputProps={{ min: 1 }}
+                />
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={localSettings?.creditNoteExpiryEnabled || false}
+                        onChange={(e) => handleSettingsChange('creditNoteExpiryEnabled', e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label="Enable Credit Note Expiry"
+                  />
+                  
+                  {localSettings?.creditNoteExpiryEnabled && (
+                    <TextField
+                      fullWidth
+                      label="Credit Note Expiry Period (Days)"
+                      type="number"
+                      value={localSettings?.creditNoteExpiryDays || 365}
+                      onChange={(e) => handleSettingsChange('creditNoteExpiryDays', parseInt(e.target.value) || 365)}
+                      inputProps={{ min: 1 }}
+                      helperText="Default period before a credit note expires (default: 365 days)"
+                    />
+                  )}
+                </Box>
+
                 <Button
                   variant="outlined"
                   fullWidth
@@ -485,6 +530,72 @@ const SettingsPage: React.FC = () => {
             onChange={(e) => handleSettingsChange('terms', e.target.value)}
             placeholder="Enter your default terms and conditions that will be used in quotes..."
           />
+        </Paper>
+
+        {/* Email Templates */}
+        <Paper sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <Email sx={{ mr: 1, color: 'primary.main' }} />
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              Email Templates Configuration
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Invoice Email Template
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                Available placeholders: {"{{customerName}}, {{invoiceNumber}}, {{totalAmount}}, {{paidAmount}}, {{balanceDue}}, {{companyName}}"}
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Invoice Email Subject"
+                  value={localSettings?.invoiceEmailSubject || ''}
+                  onChange={(e) => handleSettingsChange('invoiceEmailSubject', e.target.value)}
+                  placeholder="Invoice {{invoiceNumber}} from {{companyName}}"
+                />
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  label="Invoice Email Message"
+                  value={localSettings?.invoiceEmailBody || ''}
+                  onChange={(e) => handleSettingsChange('invoiceEmailBody', e.target.value)}
+                  placeholder="Enter custom message body..."
+                />
+              </Box>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Quote Email Template
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                Available placeholders: {"{{customerName}}, {{quoteNumber}}, {{totalAmount}}, {{companyName}}"}
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Quote Email Subject"
+                  value={localSettings?.quoteEmailSubject || ''}
+                  onChange={(e) => handleSettingsChange('quoteEmailSubject', e.target.value)}
+                  placeholder="Quote {{quoteNumber}} from {{companyName}}"
+                />
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  label="Quote Email Message"
+                  value={localSettings?.quoteEmailBody || ''}
+                  onChange={(e) => handleSettingsChange('quoteEmailBody', e.target.value)}
+                  placeholder="Enter custom message body..."
+                />
+              </Box>
+            </Box>
+          </Box>
         </Paper>
       </Box>
     </Box>

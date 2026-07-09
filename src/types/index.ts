@@ -55,6 +55,14 @@ export interface CompanySettings {
   taxRate: number;
   terms: string;
   quoteValidityDays: number;
+  creditNotePrefix?: string;
+  nextCreditNoteNumber?: number;
+  creditNoteExpiryEnabled?: boolean;
+  creditNoteExpiryDays?: number;
+  quoteEmailSubject?: string;
+  quoteEmailBody?: string;
+  invoiceEmailSubject?: string;
+  invoiceEmailBody?: string;
 }
 
 export interface Tax {
@@ -99,6 +107,7 @@ export interface Customer {
   email: string;
   phone?: string;
   companyName?: string;
+  vatNumber?: string;
   address: Address;
   notes?: string;
   tags: string[];
@@ -111,6 +120,7 @@ export interface Customer {
   lastContactDate?: string;
   totalQuotes: number;
   totalValue: number;
+  creditBalance?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -121,6 +131,7 @@ export interface CustomerFormData {
   email: string;
   phone?: string;
   companyName?: string;
+  vatNumber?: string;
   address: Address;
   notes?: string;
   tags: string[];
@@ -361,6 +372,9 @@ export interface Invoice {
   paidAmount: number;
   companySignature?: string;
   customerSignature?: string;
+  creditApplied?: number;
+  creditNoteRedemptions?: Array<{ creditNote: string; amount: number }>;
+  finalPayable?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -385,6 +399,7 @@ export interface InvoiceFormData {
   payments?: Payment[];
   companySignature?: string;
   customerSignature?: string;
+  creditApplied?: number;
 }
 
 export interface InvoicesResponse {
@@ -878,6 +893,9 @@ export interface Sale {
   isReturn: boolean;
   originalSale?: string;
   returnReason?: string;
+  creditApplied?: number;
+  creditNoteRedemptions?: Array<{ creditNote: string; amount: number }>;
+  finalPayable?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -898,6 +916,7 @@ export interface SaleFormData {
   paymentStatus: 'pending' | 'partial' | 'paid' | 'refunded';
   saleDate: string;
   notes?: string;
+  creditApplied?: number;
 }
 
 export interface SaleFilters {
@@ -1044,3 +1063,140 @@ export interface ExpenseStats {
     totalAmount: number;
   }>;
 }
+
+// Credit Note Types
+export interface CreditNoteItem {
+  product?: string;
+  productName: string;
+  productSku?: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface CreditNoteRedemption {
+  id?: string;
+  _id?: string;
+  invoice?: {
+    id: string;
+    _id: string;
+    invoiceNumber: string;
+    total: number;
+  };
+  sale?: {
+    id: string;
+    _id: string;
+    saleNumber: string;
+    total: number;
+  };
+  amount: number;
+  date: string;
+  notes?: string;
+}
+
+export interface CreditNote {
+  id: string;
+  _id?: string;
+  creditNoteNumber: string;
+  company: string;
+  customer: {
+    id: string;
+    _id: string;
+    firstName: string;
+    lastName: string;
+    companyName?: string;
+    email: string;
+    phone?: string;
+    address?: Address;
+  };
+  originalInvoice?: {
+    id: string;
+    _id: string;
+    invoiceNumber: string;
+    total: number;
+  };
+  originalSale?: {
+    id: string;
+    _id: string;
+    saleNumber: string;
+    total: number;
+  };
+  sourceType: 'invoice' | 'sale';
+  returnedItems: CreditNoteItem[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  creditAmount: number;
+  usedAmount: number;
+  remainingBalance: number;
+  status: 'unused' | 'partially_used' | 'fully_used' | 'expired';
+  returnReason?: string;
+  redemptions: CreditNoteRedemption[];
+  expiryDate?: string;
+  notes?: string;
+  createdBy: {
+    id: string;
+    _id: string;
+    firstName: string;
+    lastName: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreditNoteFormData {
+  sourceType: 'invoice' | 'sale';
+  sourceId: string;
+  returnedItems: Array<{
+    product?: string;
+    productName: string;
+    productSku?: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+  returnReason?: string;
+  notes?: string;
+}
+
+export interface CreditNoteFilters {
+  search?: string;
+  status?: string;
+  customerId?: string;
+  startDate?: string;
+  endDate?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}
+
+export interface CreditNotesResponse {
+  creditNotes: CreditNote[];
+  pagination: PaginationInfo;
+}
+
+export interface CreditNoteStats {
+  overview: {
+    totalCreditNotes: number;
+    totalCreditAmount: number;
+    totalUsed: number;
+    totalOutstanding: number;
+  };
+  statusBreakdown: {
+    [key: string]: {
+      count: number;
+      amount: number;
+      remaining: number;
+    };
+  };
+}
+
+export interface CustomerCreditBalance {
+  balance: {
+    totalCredit: number;
+    totalUsed: number;
+    remainingBalance: number;
+  };
+  availableCreditNotes: CreditNote[];
+}
+

@@ -20,7 +20,9 @@ import {
   TableHead,
   TableRow,
   Divider,
-  InputAdornment
+  InputAdornment,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import {
   Save,
@@ -29,11 +31,12 @@ import {
   Delete,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { invoiceApi, customerApi, taxApi } from '../api';
+import { invoiceApi, customerApi, taxApi, creditNoteApi } from '../api';
 import { InvoiceFormData, Customer, Tax } from '../types';
 import { useCompany } from '../contexts/CompanyContext';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 import { Payment, QuoteItem } from '../types';
+import { COLORS } from '../theme/colors';
 
 const InvoiceForm: React.FC = () => {
   const navigate = useNavigate();
@@ -88,6 +91,23 @@ const InvoiceForm: React.FC = () => {
     notes: ''
   });
 
+  // Customer Credit state
+  const [availableCredit, setAvailableCredit] = useState<number>(0);
+  const [applyCredit, setApplyCredit] = useState<boolean>(false);
+
+  const fetchCustomerCredit = async (customerId: string) => {
+    if (!customerId) {
+      setAvailableCredit(0);
+      return;
+    }
+    try {
+      const res = await creditNoteApi.getCustomerBalance(customerId);
+      setAvailableCredit(res.balance?.remainingBalance || 0);
+    } catch (err) {
+      console.error('Failed to fetch customer credit balance:', err);
+    }
+  };
+
   useEffect(() => {
     fetchCustomers();
     fetchTaxes();
@@ -126,8 +146,16 @@ const InvoiceForm: React.FC = () => {
         taxRate: invoice.taxRate,
         dueDate: invoice.dueDate.split('T')[0],
         terms: invoice.terms,
-        notes: invoice.notes || ''
+        notes: invoice.notes || '',
+        creditApplied: invoice.creditApplied || 0
       });
+      
+      if (invoice.customer?.id) {
+        fetchCustomerCredit(invoice.customer.id);
+        if (invoice.creditApplied && invoice.creditApplied > 0) {
+          setApplyCredit(true);
+        }
+      }
     } catch (err: any) {
       setError('Failed to fetch invoice');
     } finally {
@@ -137,6 +165,11 @@ const InvoiceForm: React.FC = () => {
 
   const handleInputChange = (field: keyof InvoiceFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'customerId') {
+      fetchCustomerCredit(value);
+      setApplyCredit(false);
+      setFormData(prev => ({ ...prev, creditApplied: 0 }));
+    }
   };
 
   const handleItemChange = (index: number, field: keyof QuoteItem, value: any) => {
@@ -188,34 +221,24 @@ const InvoiceForm: React.FC = () => {
     return calculateSubtotal() + calculateTaxAmount();
   };
 
-  const handleSave = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const calculateFinalPayable = () => {
+    const total = calculateTotal();
+    const credit = applyCredit ? Number(formData.creditApplied || 0) : 0;
+    return Math.max(0, total - credit);
+  };
 
-      if (isEditing && id) {
-        await invoiceApi.updateInvoice(id, formData);
-        setSuccess('Invoice updated successfully');
-      } else {
-        await invoiceApi.createInvoice(formData);
-        setSuccess('Invoice created successfully');
-      }
+  const calculatePaidAmount = () => {
+    return formData.payments?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+  };
 
-      setTimeout(() => {
-        navigate('/invoices');
-      }, 1500);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save invoice');
-    } finally {
-      setIsLoading(false);
-    }
+  const calculateBalanceDue = () => {
+    return calculateFinalPayable() - calculatePaidAmount();
   };
 
   const handleCancel = () => {
     navigate('/invoices');
   };
 
-  // Payment management functions
   const addPayment = () => {
     if (newPayment.amount > 0) {
       setFormData(prev => ({
@@ -238,12 +261,32 @@ const InvoiceForm: React.FC = () => {
     }));
   };
 
-  const calculatePaidAmount = () => {
-    return formData.payments?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
-  };
+  const handleSave = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-  const calculateBalanceDue = () => {
-    return calculateTotal() - calculatePaidAmount();
+      const invoiceToSave = {
+        ...formData,
+        creditApplied: applyCredit ? Number(formData.creditApplied || 0) : 0
+      };
+
+      if (isEditing && id) {
+        await invoiceApi.updateInvoice(id, invoiceToSave);
+        setSuccess('Invoice updated successfully');
+      } else {
+        await invoiceApi.createInvoice(invoiceToSave);
+        setSuccess('Invoice created successfully');
+      }
+
+      setTimeout(() => {
+        navigate('/invoices');
+      }, 1500);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save invoice');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isLoading && isEditing) {
@@ -323,6 +366,57 @@ const InvoiceForm: React.FC = () => {
                 placeholder="e.g., Website Development Services"
               />
             </Box>
+            
+            {availableCredit > 0 && (
+              <Box sx={{ p: 2, bgcolor: 'rgba(21, 209, 154, 0.08)', border: `1px solid ${COLORS.success}`, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography sx={{ color: COLORS.success, fontWeight: 600 }}>
+                  Available Wallet Credit: {formatCurrency(availableCredit)}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={applyCredit}
+                        onChange={(e) => {
+                          setApplyCredit(e.target.checked);
+                          if (e.target.checked) {
+                            const defaultDeduct = Math.min(availableCredit, calculateTotal());
+                            handleInputChange('creditApplied', defaultDeduct);
+                          } else {
+                            handleInputChange('creditApplied', 0);
+                          }
+                        }}
+                        color="success"
+                      />
+                    }
+                    label="Apply Credit"
+                    sx={{ color: COLORS.textPrimary }}
+                  />
+                  {applyCredit && (
+                    <TextField
+                      label="Redeem Amount"
+                      type="number"
+                      size="small"
+                      value={formData.creditApplied || ''}
+                      onChange={(e) => {
+                        const val = Math.min(availableCredit, Math.min(calculateTotal(), Math.max(0, parseFloat(e.target.value) || 0)));
+                        handleInputChange('creditApplied', val);
+                      }}
+                      inputProps={{ min: 0, max: Math.min(availableCredit, calculateTotal()), step: 1 }}
+                      sx={{
+                        width: 150,
+                        '& .MuiInputLabel-root': { color: COLORS.textMuted },
+                        '& .MuiOutlinedInput-root': {
+                          color: COLORS.textPrimary,
+                          '& fieldset': { borderColor: COLORS.border },
+                          '&.Mui-focused fieldset': { borderColor: COLORS.accent }
+                        }
+                      }}
+                    />
+                  )}
+                </Box>
+              </Box>
+            )}
             <TextField
               fullWidth
               label="Description"
@@ -484,20 +578,27 @@ const InvoiceForm: React.FC = () => {
                 <Typography variant="h6">Total:</Typography>
                 <Typography variant="h6">{formatCurrency(calculateTotal(), settings?.currency || 'USD')}</Typography>
               </Box>
-              {calculatePaidAmount() > 0 && (
-                <>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography>Paid Amount:</Typography>
-                    <Typography>{formatCurrency(calculatePaidAmount(), settings?.currency || 'USD')}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="h6" color="primary">Balance Due:</Typography>
-                    <Typography variant="h6" color="primary">
-                      {formatCurrency(calculateBalanceDue(), settings?.currency || 'USD')}
-                    </Typography>
-                  </Box>
-                </>
+              {applyCredit && (formData.creditApplied || 0) > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: COLORS.success }}>
+                  <Typography>Credit Applied:</Typography>
+                  <Typography>-{formatCurrency(formData.creditApplied || 0, settings?.currency || 'USD')}</Typography>
+                </Box>
               )}
+              {applyCredit && (formData.creditApplied || 0) > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Final Payable:</Typography>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(calculateFinalPayable(), settings?.currency || 'USD')}
+                  </Typography>
+                </Box>
+              )}
+              <Divider sx={{ my: 1 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="h6" color="primary">Balance Due:</Typography>
+                <Typography variant="h6" color="primary">
+                  {formatCurrency(calculateBalanceDue(), settings?.currency || 'USD')}
+                </Typography>
+              </Box>
             </Box>
           </Box>
         </CardContent>

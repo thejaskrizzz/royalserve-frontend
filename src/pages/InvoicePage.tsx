@@ -40,7 +40,8 @@ import {
   GetApp,
   FilterList,
   Send,
-  Payment as PaymentIcon
+  Payment as PaymentIcon,
+  AssignmentReturn
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { invoiceApi } from '../api';
@@ -177,8 +178,11 @@ const InvoicePage: React.FC = () => {
   };
 
   const handleDownloadPDF = async (invoice: Invoice) => {
+    console.log('handleDownloadPDF called for invoice:', invoice.id, invoice.invoiceNumber);
     try {
+      setError('');
       const blob = await invoiceApi.generatePDF(invoice.id);
+      console.log('PDF generation response received, blob size:', blob.size, 'type:', blob.type);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -187,7 +191,9 @@ const InvoicePage: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      console.log('Invoice PDF download triggered successfully');
     } catch (err: any) {
+      console.error('Invoice PDF download error:', err);
       setError(err.response?.data?.message || 'Failed to download PDF');
     }
   };
@@ -460,19 +466,29 @@ const InvoicePage: React.FC = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={() => navigate(`/invoices/${selectedInvoice?.id}/edit`)}>
+        <MenuItem onClick={() => { handleMenuClose(); navigate(`/invoices/${selectedInvoice?.id}`); }}>
+          <Visibility sx={{ mr: 1 }} />
+          View Details
+        </MenuItem>
+        <MenuItem onClick={() => { handleMenuClose(); navigate(`/invoices/${selectedInvoice?.id}/edit`); }}>
           <Edit sx={{ mr: 1 }} />
           Edit
         </MenuItem>
+        {selectedInvoice && ['paid', 'sent'].includes(selectedInvoice.status) && (
+          <MenuItem onClick={() => { handleMenuClose(); navigate(`/credit-notes/new?sourceType=invoice&sourceId=${selectedInvoice.id}`); }}>
+            <AssignmentReturn sx={{ mr: 1 }} />
+            Return Items
+          </MenuItem>
+        )}
         <MenuItem onClick={handleSendInvoice} disabled={selectedInvoice?.status === 'paid'}>
           <Send sx={{ mr: 1 }} />
           Send Invoice
         </MenuItem>
-        <MenuItem onClick={() => setPaymentDialogOpen(true)}>
+        <MenuItem onClick={() => { setAnchorEl(null); setPaymentDialogOpen(true); }}>
           <PaymentIcon sx={{ mr: 1 }} />
           Add Payment
         </MenuItem>
-        <MenuItem onClick={() => setDeleteDialogOpen(true)}>
+        <MenuItem onClick={() => { setAnchorEl(null); setDeleteDialogOpen(true); }}>
           <Delete sx={{ mr: 1 }} />
           Delete
         </MenuItem>
@@ -488,7 +504,7 @@ const InvoicePage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setDeleteDialogOpen(false); setSelectedInvoice(null); }}>Cancel</Button>
           <Button onClick={handleDelete} color="error" variant="contained">
             Delete
           </Button>
@@ -496,7 +512,7 @@ const InvoicePage: React.FC = () => {
       </Dialog>
 
       {/* Add Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={paymentDialogOpen} onClose={() => { setPaymentDialogOpen(false); setSelectedInvoice(null); }} maxWidth="sm" fullWidth>
         <DialogTitle>Add Payment</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -543,7 +559,7 @@ const InvoicePage: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPaymentDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setPaymentDialogOpen(false); setSelectedInvoice(null); }}>Cancel</Button>
           <Button onClick={handleAddPayment} variant="contained">
             Add Payment
           </Button>

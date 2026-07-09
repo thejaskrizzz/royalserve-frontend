@@ -23,6 +23,7 @@ import {
   AttachMoney,
   Business,
   Settings,
+  AssignmentReturn,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { COLORS } from "../theme/colors";
@@ -38,11 +39,13 @@ const menu = [
   { label: "Invoices", icon: <Receipt />, path: "/invoices" },
   { label: "Inventory", icon: <Inventory />, path: "/products" },
   { label: "Sales", icon: <PointOfSale />, path: "/sales" },
+  { label: "Credit Notes", icon: <AssignmentReturn />, path: "/credit-notes" },
   { label: "Expenses", icon: <AttachMoney />, path: "/expenses" },
   { label: "Categories", icon: <Category />, path: "/categories" },
   { label: "Vendors", icon: <Storefront />, path: "/vendors" },
   { label: "Purchase Orders", icon: <ShoppingCart />, path: "/purchase-orders" },
   { label: "Company", icon: <Business />, path: "/company" },
+  { label: "Statement of Account", icon: <Description />, path: "/statement-of-account" },
   { label: "Settings", icon: <Settings />, path: "/settings" },
 ];
 

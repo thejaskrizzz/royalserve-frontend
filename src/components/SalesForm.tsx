@@ -22,6 +22,8 @@ import {
   TableHead,
   TableRow,
   Autocomplete,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import {
   Save,
@@ -35,10 +37,11 @@ import {
   QrCodeScanner,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { salesApi, productApi, customerApi, taxApi } from '../api';
+import { salesApi, productApi, customerApi, taxApi, creditNoteApi } from '../api';
 import { SaleFormData, SaleItem, Product, Customer, Tax } from '../types';
 import { useCompany } from '../contexts/CompanyContext';
 import { formatCurrency } from '../utils/currency';
+import { COLORS } from '../theme/colors';
 import BarcodeScanner from './BarcodeScanner';
 
 const SalesForm: React.FC = () => {
@@ -80,6 +83,22 @@ const SalesForm: React.FC = () => {
   const [manualName, setManualName] = useState('');
   const [manualSku, setManualSku] = useState('');
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+
+  const [availableCredit, setAvailableCredit] = useState<number>(0);
+  const [applyCredit, setApplyCredit] = useState<boolean>(false);
+
+  const fetchCustomerCredit = async (customerId: string) => {
+    if (!customerId) {
+      setAvailableCredit(0);
+      return;
+    }
+    try {
+      const res = await creditNoteApi.getCustomerBalance(customerId);
+      setAvailableCredit(res.balance?.remainingBalance || 0);
+    } catch (err) {
+      console.error('Failed to fetch customer credit balance:', err);
+    }
+  };
 
   useEffect(() => {
     if (isEditing) {
@@ -146,7 +165,15 @@ const SalesForm: React.FC = () => {
         paymentStatus: sale.paymentStatus,
         saleDate: sale.saleDate.split('T')[0],
         notes: sale.notes || '',
+        creditApplied: sale.creditApplied || 0
       });
+
+      if (sale.customer?.id) {
+        fetchCustomerCredit(sale.customer.id);
+        if (sale.creditApplied && sale.creditApplied > 0) {
+          setApplyCredit(true);
+        }
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch sale');
     } finally {
@@ -196,7 +223,10 @@ const SalesForm: React.FC = () => {
         customerName: `${customer.firstName} ${customer.lastName}`,
         customerEmail: customer.email,
         customerPhone: customer.phone || '',
+        creditApplied: 0
       }));
+      fetchCustomerCredit(customer.id);
+      setApplyCredit(false);
     } else {
       setFormData(prev => ({
         ...prev,
@@ -204,7 +234,10 @@ const SalesForm: React.FC = () => {
         customerName: '',
         customerEmail: '',
         customerPhone: '',
+        creditApplied: 0
       }));
+      setAvailableCredit(0);
+      setApplyCredit(false);
     }
   };
 
@@ -342,6 +375,12 @@ const SalesForm: React.FC = () => {
     return subtotal - discount + tax;
   };
 
+  const calculateFinalPayable = () => {
+    const total = calculateTotal();
+    const credit = applyCredit ? Number(formData.creditApplied || 0) : 0;
+    return Math.max(0, total - credit);
+  };
+
   const calculateTotalProfit = () => {
     return formData.items.reduce((sum, item) => sum + (item.profit || 0), 0);
   };
@@ -364,7 +403,8 @@ const SalesForm: React.FC = () => {
         ...formData,
         subtotal,
         total,
-        customer: formData.customer === '' ? null : formData.customer
+        customer: formData.customer === '' ? null : formData.customer,
+        creditApplied: applyCredit ? Number(formData.creditApplied || 0) : 0
       };
 
       if (isEditing) {
@@ -488,6 +528,59 @@ const SalesForm: React.FC = () => {
                       onChange={(e) => handleInputChange('customerPhone', e.target.value)}
                     />
                   </Grid>
+
+                  {availableCredit > 0 && (
+                    <Grid item xs={12}>
+                      <Box sx={{ p: 2, bgcolor: 'rgba(21, 209, 154, 0.08)', border: `1px solid ${COLORS.success}`, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography sx={{ color: COLORS.success, fontWeight: 600 }}>
+                          Available Wallet Credit: {formatCurrency(availableCredit)}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={applyCredit}
+                                onChange={(e) => {
+                                  setApplyCredit(e.target.checked);
+                                  if (e.target.checked) {
+                                    const defaultDeduct = Math.min(availableCredit, calculateTotal());
+                                    handleInputChange('creditApplied', defaultDeduct);
+                                  } else {
+                                    handleInputChange('creditApplied', 0);
+                                  }
+                                }}
+                                color="success"
+                              />
+                            }
+                            label="Apply Credit"
+                            sx={{ color: COLORS.textPrimary }}
+                          />
+                          {applyCredit && (
+                            <TextField
+                              label="Redeem Amount"
+                              type="number"
+                              size="small"
+                              value={formData.creditApplied || ''}
+                              onChange={(e) => {
+                                const val = Math.min(availableCredit, Math.min(calculateTotal(), Math.max(0, parseFloat(e.target.value) || 0)));
+                                handleInputChange('creditApplied', val);
+                              }}
+                              inputProps={{ min: 0, max: Math.min(availableCredit, calculateTotal()), step: 1 }}
+                              sx={{
+                                width: 150,
+                                '& .MuiInputLabel-root': { color: COLORS.textMuted },
+                                '& .MuiOutlinedInput-root': {
+                                  color: COLORS.textPrimary,
+                                  '& fieldset': { borderColor: COLORS.border },
+                                  '&.Mui-focused fieldset': { borderColor: COLORS.accent }
+                                }
+                              }}
+                            />
+                          )}
+                        </Box>
+                      </Box>
+                    </Grid>
+                  )}
                 </Grid>
               </CardContent>
             </Card>
@@ -783,6 +876,20 @@ const SalesForm: React.FC = () => {
                         {formatCurrency(calculateTotal(), settings?.currency || 'USD')}
                       </Typography>
                     </Box>
+                    {applyCredit && (formData.creditApplied || 0) > 0 && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: COLORS.success }}>
+                        <Typography>Credit Applied:</Typography>
+                        <Typography>-{formatCurrency(formData.creditApplied || 0, settings?.currency || 'USD')}</Typography>
+                      </Box>
+                    )}
+                    {applyCredit && (formData.creditApplied || 0) > 0 && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="h6">Final Payable:</Typography>
+                        <Typography variant="h6" fontWeight="bold" color="primary">
+                          {formatCurrency(calculateFinalPayable(), settings?.currency || 'USD')}
+                        </Typography>
+                      </Box>
+                    )}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography>Total Profit:</Typography>
                       <Typography 

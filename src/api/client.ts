@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://business-manager-pro.onrender.com/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://business-managerpronew.onrender.com/api';
 
 class ApiClient {
   private client: AxiosInstance;

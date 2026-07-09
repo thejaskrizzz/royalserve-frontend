@@ -44,7 +44,8 @@ import {
   Visibility,
   DateRange,
   TrendingUp,
-  AttachMoney
+  AttachMoney,
+  AssignmentReturn
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { salesApi } from '../api';
@@ -135,6 +136,7 @@ const SalesPage: React.FC = () => {
       await salesApi.deleteSale(selectedSale.id);
       setSuccess('Sale deleted successfully');
       setDeleteDialogOpen(false);
+      setSelectedSale(null);
       fetchSales();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete sale');
@@ -157,7 +159,7 @@ const SalesPage: React.FC = () => {
 
   const handleReturn = () => {
     setReturnDialogOpen(true);
-    handleMenuClose();
+    setAnchorEl(null);
   };
 
   const handleDownloadDeliveryOrder = async () => {
@@ -579,11 +581,19 @@ const SalesPage: React.FC = () => {
             <ListItemIcon>
               <Undo fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Create Return</ListItemText>
+            <ListItemText>Create Cash Return</ListItemText>
+          </MenuItem>
+        )}
+        {selectedSale?.status === 'completed' && selectedSale.customer && (
+          <MenuItem onClick={() => { handleMenuClose(); navigate(`/credit-notes/new?sourceType=sale&sourceId=${selectedSale.id}`); }}>
+            <ListItemIcon>
+              <AssignmentReturn fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Return to Credit Note</ListItemText>
           </MenuItem>
         )}
         {selectedSale?.status !== 'completed' && (
-          <MenuItem onClick={() => setDeleteDialogOpen(true)}>
+          <MenuItem onClick={() => { setAnchorEl(null); setDeleteDialogOpen(true); }}>
             <ListItemIcon>
               <Delete fontSize="small" />
             </ListItemIcon>
@@ -593,7 +603,7 @@ const SalesPage: React.FC = () => {
       </Menu>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      <Dialog open={deleteDialogOpen} onClose={() => { setDeleteDialogOpen(false); setSelectedSale(null); }}>
         <DialogTitle>Delete Sale</DialogTitle>
         <DialogContent>
           <Typography>
@@ -601,7 +611,7 @@ const SalesPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setDeleteDialogOpen(false); setSelectedSale(null); }}>Cancel</Button>
           <Button onClick={handleDelete} color="error" variant="contained">
             Delete
           </Button>
@@ -609,7 +619,7 @@ const SalesPage: React.FC = () => {
       </Dialog>
 
       {/* Return Dialog */}
-      <Dialog open={returnDialogOpen} onClose={() => setReturnDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={returnDialogOpen} onClose={() => { setReturnDialogOpen(false); setSelectedSale(null); }} maxWidth="md" fullWidth>
         <DialogTitle>Create Return</DialogTitle>
         <DialogContent>
           <Typography>
@@ -617,12 +627,13 @@ const SalesPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setReturnDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setReturnDialogOpen(false); setSelectedSale(null); }}>Cancel</Button>
           <Button onClick={() => {
             if (selectedSale) {
               navigate(`/sales/${selectedSale.id}/return`);
             }
             setReturnDialogOpen(false);
+            setSelectedSale(null);
           }} variant="contained">
             Create Return
           </Button>

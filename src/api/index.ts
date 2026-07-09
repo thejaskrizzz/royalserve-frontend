@@ -59,7 +59,13 @@ import {
   ExpenseFormData,
   ExpenseFilters,
   ExpensesResponse,
-  ExpenseStats
+  ExpenseStats,
+  CreditNote,
+  CreditNoteFormData,
+  CreditNoteFilters,
+  CreditNotesResponse,
+  CreditNoteStats,
+  CustomerCreditBalance
 } from '../types';
 
 // Auth API
@@ -103,7 +109,8 @@ export const customerApi = {
       createdBy: customer.createdBy ? {
         ...customer.createdBy,
         id: customer.createdBy._id
-      } : undefined
+      } : undefined,
+      creditBalance: customer.creditBalance || 0
     }));
     
     return {
@@ -376,7 +383,8 @@ export const invoiceApi = {
       notes: invoiceData.notes,
       payments: invoiceData.payments || [],
       companySignature: invoiceData.companySignature,
-      customerSignature: invoiceData.customerSignature
+      customerSignature: invoiceData.customerSignature,
+      creditApplied: invoiceData.creditApplied || 0
     };
     
     const response = await apiClient.post('/invoices', transformedData) as any;
@@ -1058,6 +1066,103 @@ export const expenseApi = {
   },
 };
 
+// Credit Note API
+export const creditNoteApi = {
+  getCreditNotes: async (filters?: CreditNoteFilters): Promise<CreditNotesResponse> => {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    const response = await apiClient.get(`/credit-notes?${params.toString()}`) as any;
+    
+    // Transform _id to id for each credit note
+    const transformedCreditNotes = response.creditNotes.map((cn: any) => ({
+      ...cn,
+      id: cn._id,
+      customer: cn.customer ? { ...cn.customer, id: cn.customer._id } : undefined,
+      originalInvoice: cn.originalInvoice ? { ...cn.originalInvoice, id: cn.originalInvoice._id } : undefined,
+      originalSale: cn.originalSale ? { ...cn.originalSale, id: cn.originalSale._id } : undefined,
+      createdBy: cn.createdBy ? { ...cn.createdBy, id: cn.createdBy._id } : undefined
+    }));
+    
+    return {
+      ...response,
+      creditNotes: transformedCreditNotes
+    };
+  },
+
+  getCreditNote: async (id: string): Promise<CreditNote> => {
+    const response = await apiClient.get(`/credit-notes/${id}`) as any;
+    const cn = response.creditNote;
+    return {
+      ...cn,
+      id: cn._id,
+      customer: cn.customer ? { ...cn.customer, id: cn.customer._id } : undefined,
+      originalInvoice: cn.originalInvoice ? { ...cn.originalInvoice, id: cn.originalInvoice._id } : cn.originalInvoice,
+      originalSale: cn.originalSale ? { ...cn.originalSale, id: cn.originalSale._id } : cn.originalSale,
+      createdBy: cn.createdBy ? { ...cn.createdBy, id: cn.createdBy._id } : undefined,
+      redemptions: (cn.redemptions || []).map((r: any) => ({
+        ...r,
+        id: r._id,
+        invoice: r.invoice ? { ...r.invoice, id: r.invoice._id } : undefined,
+        sale: r.sale ? { ...r.sale, id: r.sale._id } : undefined
+      }))
+    };
+  },
+
+  createCreditNote: async (data: CreditNoteFormData): Promise<{ creditNote: CreditNote }> => {
+    const response = await apiClient.post('/credit-notes', data) as any;
+    return {
+      creditNote: {
+        ...response.creditNote,
+        id: response.creditNote._id
+      }
+    };
+  },
+
+  getCustomerCreditNotes: async (customerId: string): Promise<{ creditNotes: CreditNote[] }> => {
+    const response = await apiClient.get(`/credit-notes/customer/${customerId}`) as any;
+    return {
+      creditNotes: (response.creditNotes || []).map((cn: any) => ({
+        ...cn,
+        id: cn._id,
+        originalInvoice: cn.originalInvoice ? { ...cn.originalInvoice, id: cn.originalInvoice._id } : undefined,
+        originalSale: cn.originalSale ? { ...cn.originalSale, id: cn.originalSale._id } : undefined
+      }))
+    };
+  },
+
+  getCustomerBalance: (customerId: string): Promise<CustomerCreditBalance> =>
+    apiClient.get(`/credit-notes/customer/${customerId}/balance`),
+
+  redeemForInvoice: (customerId: string, amount: number, invoiceId?: string): Promise<{ message: string; totalRedeemed: number }> =>
+    apiClient.post('/credit-notes/redeem-for-invoice', { customerId, amount, invoiceId }),
+
+  redeemForSale: (customerId: string, amount: number, saleId?: string): Promise<{ message: string; totalRedeemed: number }> =>
+    apiClient.post('/credit-notes/redeem-for-sale', { customerId, amount, saleId }),
+
+  generatePDF: async (id: string): Promise<Blob> => {
+    const response = await apiClient.get(`/credit-notes/${id}/pdf`, {
+      responseType: 'blob',
+      timeout: 60000
+    }) as Blob;
+    return response;
+  },
+
+  getStats: (): Promise<CreditNoteStats> =>
+    apiClient.get('/credit-notes/stats/overview'),
+
+  getOutstandingReport: (): Promise<{ creditNotes: CreditNote[], customerSummary: any[] }> =>
+    apiClient.get('/credit-notes/reports/outstanding'),
+
+  deleteCreditNote: (id: string): Promise<{ message: string }> =>
+    apiClient.delete(`/credit-notes/${id}`)
+};
+
 const api = {
   auth: authApi,
   customers: customerApi,
@@ -1070,6 +1175,7 @@ const api = {
   products: productApi,
   sales: salesApi,
   expenses: expenseApi,
+  creditNotes: creditNoteApi,
   health: healthApi,
 };
 
