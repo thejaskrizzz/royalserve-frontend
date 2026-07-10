@@ -36,7 +36,6 @@ import {
   Delete,
   MoreVert,
   Visibility,
-  DateRange,
   AssignmentReturn,
   MonetizationOn,
   History,
@@ -60,6 +59,7 @@ const CreditNotesPage: React.FC = () => {
   const [selectedCN, setSelectedCN] = useState<CreditNote | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0, limit: 10 });
+  const { current: page, limit } = pagination;
 
   // Filters
   const [filters, setFilters] = useState<CreditNoteFilters>({
@@ -80,7 +80,7 @@ const CreditNotesPage: React.FC = () => {
     totalOutstanding: 0
   });
 
-  const [statusStats, setStatusStats] = useState<CreditNoteStats['statusBreakdown']>({});
+
 
   const formatCurrencyLocal = (amount: number) => {
     const symbol = settings?.currency === 'USD' ? '$' : settings?.currency === 'EUR' ? '€' : settings?.currency === 'GBP' ? '£' : settings?.currency === 'AED' ? 'AED ' : settings?.currency === 'INR' ? '₹' : '₹';
@@ -93,8 +93,8 @@ const CreditNotesPage: React.FC = () => {
       setError(null);
       const response = await creditNoteApi.getCreditNotes({
         ...filters,
-        page: pagination.current,
-        limit: pagination.limit
+        page,
+        limit
       });
       setCreditNotes(response.creditNotes);
       setPagination(response.pagination);
@@ -103,13 +103,12 @@ const CreditNotesPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, pagination.current, pagination.limit]);
+  }, [filters, page, limit]);
 
   const fetchStats = useCallback(async () => {
     try {
       const response = await creditNoteApi.getStats();
       setStats(response.overview);
-      setStatusStats(response.statusBreakdown || {});
     } catch (err) {
       console.error('Failed to fetch credit note statistics', err);
     }

@@ -22,7 +22,7 @@ import {
   Checkbox,
   Divider
 } from '@mui/material';
-import { Save, Cancel, AssignmentReturn } from '@mui/icons-material';
+import { Save, AssignmentReturn } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { creditNoteApi, invoiceApi, salesApi } from '../api';
 import { Invoice, Sale } from '../types';

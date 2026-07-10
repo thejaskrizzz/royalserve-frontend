@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -23,8 +23,6 @@ import {
   AssignmentReturn,
   Person,
   Receipt,
-  CalendarToday,
-  AccessTime,
   Notes
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -41,7 +39,7 @@ const CreditNoteView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCreditNote = async () => {
+  const fetchCreditNote = useCallback(async () => {
     if (!id) return;
     try {
       setIsLoading(true);
@@ -53,11 +51,11 @@ const CreditNoteView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchCreditNote();
-  }, [id]);
+  }, [fetchCreditNote]);
 
   const handlePrint = async () => {
     if (!creditNote) return;

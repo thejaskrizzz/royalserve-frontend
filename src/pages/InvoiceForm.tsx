@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -73,14 +73,14 @@ const InvoiceForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const fetchTaxes = async () => {
+  const fetchTaxes = useCallback(async () => {
     try {
       const data = await taxApi.getTaxes();
       setTaxes(data);
     } catch (error) {
       console.error('Failed to fetch taxes:', error);
     }
-  };
+  }, []);
 
   // Payment management state
   const [showPaymentSection, setShowPaymentSection] = useState(false);
@@ -95,7 +95,7 @@ const InvoiceForm: React.FC = () => {
   const [availableCredit, setAvailableCredit] = useState<number>(0);
   const [applyCredit, setApplyCredit] = useState<boolean>(false);
 
-  const fetchCustomerCredit = async (customerId: string) => {
+  const fetchCustomerCredit = useCallback(async (customerId: string) => {
     if (!customerId) {
       setAvailableCredit(0);
       return;
@@ -106,26 +106,18 @@ const InvoiceForm: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch customer credit balance:', err);
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    fetchCustomers();
-    fetchTaxes();
-    if (isEditing && id) {
-      fetchInvoice(id);
-    }
-  }, [id, isEditing]);
-
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
       const response = await customerApi.getCustomers({ limit: 1000 });
       setCustomers(response.customers);
     } catch (err: any) {
       setError('Failed to fetch customers');
     }
-  };
+  }, []);
 
-  const fetchInvoice = async (invoiceId: string) => {
+  const fetchInvoice = useCallback(async (invoiceId: string) => {
     try {
       setIsLoading(true);
       const response = await invoiceApi.getInvoice(invoiceId);
@@ -161,7 +153,15 @@ const InvoiceForm: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fetchCustomerCredit]);
+
+  useEffect(() => {
+    fetchCustomers();
+    fetchTaxes();
+    if (isEditing && id) {
+      fetchInvoice(id);
+    }
+  }, [id, isEditing, fetchCustomers, fetchTaxes, fetchInvoice]);
 
   const handleInputChange = (field: keyof InvoiceFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
