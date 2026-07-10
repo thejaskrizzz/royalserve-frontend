@@ -532,16 +532,40 @@ const SettingsPage: React.FC = () => {
           />
         </Paper>
 
-        {/* Email Templates */}
+        {/* Email Settings & Templates */}
         <Paper sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <Email sx={{ mr: 1, color: 'primary.main' }} />
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-              Email Templates Configuration
+              Email Settings & Templates Configuration
             </Typography>
           </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Email Delivery Service
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 1 }}>
+                <InputLabel id="email-service-type-label">Email Delivery Service</InputLabel>
+                <Select
+                  labelId="email-service-type-label"
+                  id="emailServiceType"
+                  value={localSettings?.emailServiceType || 'smtp'}
+                  onChange={(e) => handleSettingsChange('emailServiceType', e.target.value)}
+                  label="Email Delivery Service"
+                >
+                  <MenuItem value="smtp">Normal (SMTP / Nodemailer)</MenuItem>
+                  <MenuItem value="resend">Resend API</MenuItem>
+                </Select>
+              </FormControl>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                {localSettings?.emailServiceType === 'resend'
+                  ? 'Emails will be sent using the Resend HTTP API (requires RESEND_API_KEY environment variable on the server).'
+                  : 'Emails will be sent using standard SMTP server configuration (requires EMAIL_* environment variables on the server).'}
+              </Typography>
+            </Box>
+
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
                 Invoice Email Template

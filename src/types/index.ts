@@ -63,6 +63,7 @@ export interface CompanySettings {
   quoteEmailBody?: string;
   invoiceEmailSubject?: string;
   invoiceEmailBody?: string;
+  emailServiceType?: 'smtp' | 'resend';
 }
 
 export interface Tax {
