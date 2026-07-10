@@ -47,6 +47,7 @@ import { Quote, QuoteFilters, Customer, QuoteFormData } from '../types';
 import { formatCurrency } from '../utils/currency';
 import { useCompany } from '../contexts/CompanyContext';
 import QuoteForm from '../components/QuoteForm';
+import { ActionLoader } from '../components';
 
 const QuotesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -57,6 +58,9 @@ const QuotesPage: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionSubMessage, setActionSubMessage] = useState('');
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [filters, setFilters] = useState<QuoteFilters>({
     search: '',
@@ -166,6 +170,11 @@ const QuotesPage: React.FC = () => {
   const handleSendQuote = async () => {
     if (selectedQuote) {
       try {
+        setActionMessage('Sending Quote Email...');
+        setActionSubMessage('Generating PDF attachment and sending to customer. Please wait.');
+        setActionLoading(true);
+        setError('');
+        setSuccess('');
         const response = await quoteApi.sendQuote(selectedQuote.id);
         console.log('Send quote response:', response);
         
@@ -182,6 +191,8 @@ const QuotesPage: React.FC = () => {
         handleMenuClose();
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to send quote');
+      } finally {
+        setActionLoading(false);
       }
     }
   };
@@ -189,11 +200,19 @@ const QuotesPage: React.FC = () => {
   const handleAcceptQuote = async () => {
     if (selectedQuote) {
       try {
+        setActionMessage('Accepting Quote...');
+        setActionSubMessage('Updating quote status. Please wait.');
+        setActionLoading(true);
+        setError('');
+        setSuccess('');
         await quoteApi.acceptQuote(selectedQuote.id);
+        setSuccess('Quote accepted successfully!');
         fetchQuotes();
         handleMenuClose();
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to accept quote');
+      } finally {
+        setActionLoading(false);
       }
     }
   };
@@ -203,11 +222,19 @@ const QuotesPage: React.FC = () => {
       const reason = prompt('Please provide a reason for rejection:');
       if (reason) {
         try {
+          setActionMessage('Rejecting Quote...');
+          setActionSubMessage('Updating quote status. Please wait.');
+          setActionLoading(true);
+          setError('');
+          setSuccess('');
           await quoteApi.rejectQuote(selectedQuote.id, reason);
+          setSuccess('Quote rejected successfully!');
           fetchQuotes();
           handleMenuClose();
         } catch (err: any) {
           setError(err.response?.data?.message || 'Failed to reject quote');
+        } finally {
+          setActionLoading(false);
         }
       }
     }
@@ -216,11 +243,19 @@ const QuotesPage: React.FC = () => {
   const handleDuplicateQuote = async () => {
     if (selectedQuote) {
       try {
+        setActionMessage('Duplicating Quote...');
+        setActionSubMessage('Creating a duplicate of this quote. Please wait.');
+        setActionLoading(true);
+        setError('');
+        setSuccess('');
         await quoteApi.duplicateQuote(selectedQuote.id);
+        setSuccess('Quote duplicated successfully!');
         fetchQuotes();
         handleMenuClose();
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to duplicate quote');
+      } finally {
+        setActionLoading(false);
       }
     }
   };
@@ -228,7 +263,11 @@ const QuotesPage: React.FC = () => {
   const handleConvertToInvoice = async () => {
     if (selectedQuote) {
       try {
+        setActionMessage('Converting Quote...');
+        setActionSubMessage('Creating a new invoice from this quote. Please wait.');
+        setActionLoading(true);
         setError('');
+        setSuccess('');
         const response = await invoiceApi.convertQuoteToInvoice(selectedQuote.id);
         setSuccess(`Quote "${selectedQuote.title}" converted to invoice ${response.invoice.invoiceNumber} successfully! Redirecting to invoices...`);
         handleMenuClose();
@@ -240,6 +279,8 @@ const QuotesPage: React.FC = () => {
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to convert quote to invoice');
         handleMenuClose();
+      } finally {
+        setActionLoading(false);
       }
     }
   };
@@ -248,6 +289,9 @@ const QuotesPage: React.FC = () => {
     if (!selectedQuote) return;
 
     try {
+      setActionMessage('Generating PDF...');
+      setActionSubMessage('Creating quote PDF document. Please wait.');
+      setActionLoading(true);
       console.log('Starting PDF download for quote:', selectedQuote.id);
       setError(''); // Clear any previous errors
       setSuccess('Generating PDF... Please wait, this may take a moment for large quotes.');
@@ -310,6 +354,8 @@ const QuotesPage: React.FC = () => {
       
       setError(errorMessage);
       setSuccess('');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -681,6 +727,7 @@ const QuotesPage: React.FC = () => {
           />
         </DialogContent>
       </Dialog>
+      <ActionLoader open={actionLoading} message={actionMessage} subMessage={actionSubMessage} />
     </Box>
   );
 };

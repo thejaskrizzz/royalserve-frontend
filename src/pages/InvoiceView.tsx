@@ -41,6 +41,7 @@ import { Invoice } from '../types';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 import { useCompany } from '../contexts/CompanyContext';
 import { COLORS } from '../theme/colors';
+import { ActionLoader } from '../components';
 
 const InvoiceView: React.FC = () => {
   const navigate = useNavigate();
@@ -51,6 +52,9 @@ const InvoiceView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionSubMessage, setActionSubMessage] = useState('');
   const [paymentForm, setPaymentForm] = useState({
     amount: 0,
     paymentDate: new Date().toISOString().split('T')[0],
@@ -61,6 +65,11 @@ const InvoiceView: React.FC = () => {
   const handleAddPayment = async () => {
     if (!invoice) return;
     try {
+      setActionMessage('Adding Payment...');
+      setActionSubMessage('Recording payment status. Please wait.');
+      setActionLoading(true);
+      setError(null);
+      setSuccess(null);
       await invoiceApi.addPayment(invoice.id, {
         amount: paymentForm.amount,
         paymentDate: paymentForm.paymentDate,
@@ -74,16 +83,21 @@ const InvoiceView: React.FC = () => {
         paymentMethod: 'bank_transfer',
         notes: ''
       });
+      setSuccess('Payment added successfully!');
       fetchInvoice(invoice.id);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to add payment');
+    } finally {
+      setActionLoading(false);
     }
   };
   
   const handleSendInvoice = async () => {
     if (!invoice) return;
     try {
-      setIsLoading(true);
+      setActionMessage('Sending Invoice Email...');
+      setActionSubMessage('Generating PDF attachment and sending to customer. Please wait.');
+      setActionLoading(true);
       setError(null);
       setSuccess(null);
       const response = await invoiceApi.sendInvoice(invoice.id);
@@ -98,7 +112,7 @@ const InvoiceView: React.FC = () => {
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to send invoice');
     } finally {
-      setIsLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -147,7 +161,11 @@ const InvoiceView: React.FC = () => {
     if (!invoice) return;
 
     try {
+      setActionMessage('Generating PDF...');
+      setActionSubMessage('Creating invoice PDF document. Please wait.');
+      setActionLoading(true);
       setError('');
+      setSuccess(null);
 
       const blob = await invoiceApi.generatePDF(invoice.id);
 
@@ -175,10 +193,12 @@ const InvoiceView: React.FC = () => {
 
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
+      setSuccess('PDF downloaded successfully!');
     } catch (err: any) {
       console.error(err);
       setError('Failed to download PDF');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -534,6 +554,7 @@ const InvoiceView: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <ActionLoader open={actionLoading} message={actionMessage} subMessage={actionSubMessage} />
     </Box>
   );
 };

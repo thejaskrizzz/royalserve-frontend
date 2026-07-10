@@ -48,6 +48,7 @@ import { invoiceApi } from '../api';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 import { Invoice } from '../types';
 import { useCompany } from '../contexts/CompanyContext';
+import { ActionLoader } from '../components';
 
 const InvoicePage: React.FC = () => {
   const navigate = useNavigate();
@@ -60,6 +61,9 @@ const InvoicePage: React.FC = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionSubMessage, setActionSubMessage] = useState('');
   // Filters and Pagination state
   interface InvoiceFilters {
     search?: string;
@@ -144,12 +148,19 @@ const InvoicePage: React.FC = () => {
     if (!selectedInvoice) return;
     
     try {
+      setActionMessage('Deleting Invoice...');
+      setActionSubMessage('Removing the invoice record. Please wait.');
+      setActionLoading(true);
+      setError(null);
+      setSuccess(null);
       await invoiceApi.deleteInvoice(selectedInvoice.id);
       setSuccess('Invoice deleted successfully');
       setDeleteDialogOpen(false);
       fetchInvoices();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete invoice');
+    } finally {
+      setActionLoading(false);
     }
     handleMenuClose();
   };
@@ -158,6 +169,11 @@ const InvoicePage: React.FC = () => {
     if (!selectedInvoice) return;
     
     try {
+      setActionMessage('Sending Invoice Email...');
+      setActionSubMessage('Generating PDF attachment and sending to customer. Please wait.');
+      setActionLoading(true);
+      setError(null);
+      setSuccess(null);
       const response = await invoiceApi.sendInvoice(selectedInvoice.id);
       console.log('Send invoice response:', response);
       
@@ -174,13 +190,19 @@ const InvoicePage: React.FC = () => {
       handleMenuClose();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to send invoice');
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleDownloadPDF = async (invoice: Invoice) => {
     console.log('handleDownloadPDF called for invoice:', invoice.id, invoice.invoiceNumber);
     try {
+      setActionMessage('Generating PDF...');
+      setActionSubMessage('Creating invoice PDF document. Please wait.');
+      setActionLoading(true);
       setError('');
+      setSuccess(null);
       const blob = await invoiceApi.generatePDF(invoice.id);
       console.log('PDF generation response received, blob size:', blob.size, 'type:', blob.type);
       const url = window.URL.createObjectURL(blob);
@@ -191,10 +213,13 @@ const InvoicePage: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      setSuccess('PDF downloaded successfully!');
       console.log('Invoice PDF download triggered successfully');
     } catch (err: any) {
       console.error('Invoice PDF download error:', err);
       setError(err.response?.data?.message || 'Failed to download PDF');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -202,6 +227,11 @@ const InvoicePage: React.FC = () => {
     if (!selectedInvoice) return;
     
     try {
+      setActionMessage('Adding Payment...');
+      setActionSubMessage('Recording payment status. Please wait.');
+      setActionLoading(true);
+      setError(null);
+      setSuccess(null);
       await invoiceApi.addPayment(selectedInvoice.id, {
         amount: paymentForm.amount,
         paymentDate: paymentForm.paymentDate,
@@ -219,6 +249,8 @@ const InvoicePage: React.FC = () => {
       fetchInvoices();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to add payment');
+    } finally {
+      setActionLoading(false);
     }
     handleMenuClose();
   };
@@ -565,6 +597,7 @@ const InvoicePage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <ActionLoader open={actionLoading} message={actionMessage} subMessage={actionSubMessage} />
     </Box>
   );
 };

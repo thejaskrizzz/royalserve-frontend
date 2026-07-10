@@ -16,3 +16,4 @@ export { default as CategoryForm } from './CategoryForm';
 export { default as VendorForm } from './VendorForm';
 export { default as BarcodeScanner } from './BarcodeScanner';
 export { default as BarcodeDisplay } from './BarcodeDisplay';
+export { default as ActionLoader } from './ActionLoader';
