@@ -221,7 +221,7 @@ const StatementOfAccountPage: React.FC = () => {
             setDownloadingPDF(true);
             setError(null);
 
-            const blobData = await apiClient.get<Blob>('/soa', {
+            const response: any = await apiClient.get('/soa', {
                 params: {
                     customer_id: selectedCustomer._id,
                     from: fromDate,
@@ -233,7 +233,40 @@ const StatementOfAccountPage: React.FC = () => {
                 timeout: 120000
             });
 
-            const url = window.URL.createObjectURL(blobData);
+            const blob = response instanceof Blob ? response : new Blob([response]);
+
+            // If the server returned a JSON error response
+            if (blob.type === 'application/json') {
+                const text = await blob.text();
+                try {
+                    const json = JSON.parse(text);
+                    setError(json.message || "Failed to generate Statement of Account PDF.");
+                } catch {
+                    setError("Failed to generate Statement of Account PDF.");
+                }
+                return;
+            }
+
+            // If the server returned HTML fallback
+            if (blob.type.includes('html')) {
+                const htmlBlob = new Blob([blob], { type: 'text/html;charset=utf-8' });
+                const url = window.URL.createObjectURL(htmlBlob);
+                const win = window.open(url, '_blank');
+                if (!win) {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', `SOA-${selectedCustomer.firstName}-${toDate}.html`);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.parentNode?.removeChild(link);
+                }
+                window.URL.revokeObjectURL(url);
+                return;
+            }
+
+            // Create explicit application/pdf Blob
+            const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
             link.href = url;
             link.setAttribute('download', `SOA-${selectedCustomer.firstName}-${toDate}.pdf`);
