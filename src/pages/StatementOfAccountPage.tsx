@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Box,
     Typography,
@@ -121,6 +121,15 @@ const StatementOfAccountPage: React.FC = () => {
     const [applyAmount, setApplyAmount] = useState<number | string>("");
     const [applyingCredit, setApplyingCredit] = useState(false);
 
+    const generationId = useRef(0);
+    const maxApplicableCredit = Math.min(customerCredit?.remainingBalance || 0, soaData?.totalOutstandingInvoices || 0);
+    useEffect(() => {
+        generationId.current++;
+        setSoaData(null);
+        setGenerating(false);
+        setApplyDialogOpen(false);
+    }, [selectedCustomer, fromDate, toDate]);
+
     const formatCurrency = (amount: number) => {
         const currency = settings?.currency || 'AED';
         try {
@@ -165,13 +174,18 @@ const StatementOfAccountPage: React.FC = () => {
 
     // Fetch customer credit balance when customer is selected
     useEffect(() => {
+        let active = true;
+        setCustomerCredit(null);
+        setAvailableCreditNotes([]);
         if (selectedCustomer) {
             creditNoteApi.getCustomerBalance(selectedCustomer._id)
                 .then((res: any) => {
+                    if (!active) return;
                     setCustomerCredit(res.balance || null);
                     setAvailableCreditNotes(res.availableCreditNotes || []);
                 })
                 .catch((err) => {
+                    if (!active) return;
                     console.error("Failed to fetch customer credit balance:", err);
                     setCustomerCredit(null);
                     setAvailableCreditNotes([]);
@@ -181,6 +195,7 @@ const StatementOfAccountPage: React.FC = () => {
             setAvailableCreditNotes([]);
             setSoaData(null);
         }
+        return () => { active = false; };
     }, [selectedCustomer]);
 
     const handleGenerate = async (deductOverride?: boolean) => {
@@ -189,10 +204,12 @@ const StatementOfAccountPage: React.FC = () => {
             return;
         }
 
+        if (fromDate > toDate) { setError("From date must not be after To date."); return; }
+        const requestId = ++generationId.current;
         try {
             setGenerating(true);
             setError(null);
-            setSuccessMessage(null);
+
 
             const deduct = deductOverride !== undefined ? deductOverride : deductCredit;
 
@@ -205,17 +222,17 @@ const StatementOfAccountPage: React.FC = () => {
                 }
             });
 
-            setSoaData(response);
+            if (requestId === generationId.current) setSoaData(response);
         } catch (err: any) {
             console.error("Error generating SOA:", err);
-            setError(err.response?.data?.message || "Failed to generate Statement of Account.");
+            if (requestId === generationId.current) setError(err.response?.data?.message || "Failed to generate Statement of Account.");
         } finally {
-            setGenerating(false);
+            if (requestId === generationId.current) setGenerating(false);
         }
     };
 
     const handleDownloadPDF = async () => {
-        if (!selectedCustomer || !fromDate || !toDate) return;
+        if (!selectedCustomer || !soaData) return;
 
         try {
             setDownloadingPDF(true);
@@ -223,11 +240,11 @@ const StatementOfAccountPage: React.FC = () => {
 
             const response: any = await apiClient.get('/soa', {
                 params: {
-                    customer_id: selectedCustomer._id,
-                    from: fromDate,
-                    to: toDate,
+                    customer_id: soaData.customer_id,
+                    from: soaData.period.from,
+                    to: soaData.period.to,
                     format: 'pdf',
-                    deduct_credit: deductCredit ? 'true' : 'false'
+                    deduct_credit: soaData.deductCredit ? 'true' : 'false'
                 },
                 responseType: 'blob',
                 timeout: 120000
@@ -247,20 +264,8 @@ const StatementOfAccountPage: React.FC = () => {
                 return;
             }
 
-            // If the server returned HTML fallback
-            if (blob.type.includes('html')) {
-                const htmlBlob = new Blob([blob], { type: 'text/html;charset=utf-8' });
-                const url = window.URL.createObjectURL(htmlBlob);
-                const win = window.open(url, '_blank');
-                if (!win) {
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.setAttribute('download', `SOA-${selectedCustomer.firstName}-${toDate}.html`);
-                    document.body.appendChild(link);
-                    link.click();
-                    link.parentNode?.removeChild(link);
-                }
-                window.URL.revokeObjectURL(url);
+            if ((await blob.slice(0, 5).text()) !== '%PDF-') {
+                setError("The server did not return a valid PDF. Please contact the administrator.");
                 return;
             }
 
@@ -273,10 +278,15 @@ const StatementOfAccountPage: React.FC = () => {
             document.body.appendChild(link);
             link.click();
             link.parentNode?.removeChild(link);
-            window.URL.revokeObjectURL(url);
+            window.setTimeout(() => window.URL.revokeObjectURL(url), 10000);
         } catch (err: any) {
             console.error("Error downloading PDF:", err);
-            setError("Failed to download PDF. Please try again.");
+            const body = err.response?.data;
+            let message = "Failed to download PDF. Please try again.";
+            if (body instanceof Blob) {
+                try { message = JSON.parse(await body.text()).message || message; } catch { /* keep default */ }
+            }
+            setError(message);
         } finally {
             setDownloadingPDF(false);
         }
@@ -284,21 +294,15 @@ const StatementOfAccountPage: React.FC = () => {
 
     // Open apply credit modal with precalculated amount
     const handleOpenApplyDialog = () => {
-        if (!customerCredit || customerCredit.remainingBalance <= 0) return;
-
-        const maxOutstanding = soaData?.totalOutstandingInvoices !== undefined 
-            ? soaData.totalOutstandingInvoices 
-            : customerCredit.remainingBalance;
-
-        const defaultAmount = Math.min(customerCredit.remainingBalance, maxOutstanding > 0 ? maxOutstanding : customerCredit.remainingBalance);
-        setApplyAmount(defaultAmount > 0 ? defaultAmount : customerCredit.remainingBalance);
+        if (!soaData || maxApplicableCredit <= 0) return;
+        setApplyAmount(maxApplicableCredit);
         setApplyDialogOpen(true);
     };
 
     const handleApplyCreditSubmit = async () => {
-        if (!selectedCustomer) return;
+        if (!selectedCustomer || applyingCredit || !soaData) return;
         const numAmount = Number(applyAmount);
-        if (isNaN(numAmount) || numAmount <= 0) {
+        if (!Number.isFinite(numAmount) || numAmount <= 0 || numAmount > maxApplicableCredit || Math.abs(numAmount * 100 - Math.round(numAmount * 100)) > 1e-6) {
             setError("Please enter a valid credit amount to apply.");
             return;
         }
@@ -315,6 +319,7 @@ const StatementOfAccountPage: React.FC = () => {
             setSuccessMessage(res.message || `Successfully applied ${formatCurrency(numAmount)} credit to customer invoices.`);
             setApplyDialogOpen(false);
 
+            setSoaData(null);
             // Refresh customer credit balance
             const balanceRes: any = await creditNoteApi.getCustomerBalance(selectedCustomer._id);
             setCustomerCredit(balanceRes.balance || null);
@@ -324,7 +329,9 @@ const StatementOfAccountPage: React.FC = () => {
             await handleGenerate();
         } catch (err: any) {
             console.error("Failed to apply credit via SOA:", err);
-            setError(err.response?.data?.message || "Failed to apply credit notes to customer invoices.");
+            setApplyDialogOpen(false);
+            setSoaData(null);
+            setError(err.response?.data?.message || "Settlement could not be confirmed. Generate a fresh statement and check balances before trying again.");
         } finally {
             setApplyingCredit(false);
         }
@@ -341,6 +348,7 @@ const StatementOfAccountPage: React.FC = () => {
                 <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                     <Box sx={{ flex: 2, minWidth: '300px' }}>
                         <Autocomplete
+                            disabled={applyingCredit || downloadingPDF}
                             options={customers}
                             getOptionLabel={(option) => `${option.firstName} ${option.lastName} ${option.companyName ? `(${option.companyName})` : ''}`}
                             value={selectedCustomer}
@@ -360,6 +368,7 @@ const StatementOfAccountPage: React.FC = () => {
                     </Box>
                     <Box sx={{ flex: 1, minWidth: '200px' }}>
                         <TextField
+                            disabled={applyingCredit || downloadingPDF}
                             label="From Date"
                             type="date"
                             value={fromDate}
@@ -371,6 +380,7 @@ const StatementOfAccountPage: React.FC = () => {
                     </Box>
                     <Box sx={{ flex: 1, minWidth: '200px' }}>
                         <TextField
+                            disabled={applyingCredit || downloadingPDF}
                             label="To Date"
                             type="date"
                             value={toDate}
@@ -387,7 +397,7 @@ const StatementOfAccountPage: React.FC = () => {
                             size="large"
                             startIcon={generating ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
                             onClick={() => handleGenerate()}
-                            disabled={generating || !selectedCustomer}
+                            disabled={applyingCredit || downloadingPDF || generating || !selectedCustomer}
                             sx={{
                                 background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentSecondary})`,
                                 height: 56
@@ -448,6 +458,7 @@ const StatementOfAccountPage: React.FC = () => {
                                                 handleGenerate(checked);
                                             }
                                         }}
+                                        disabled={applyingCredit || generating || downloadingPDF}
                                         color="success"
                                     />
                                 }
@@ -462,6 +473,7 @@ const StatementOfAccountPage: React.FC = () => {
                                 variant="contained"
                                 color="success"
                                 startIcon={<PaymentIcon />}
+                                disabled={applyingCredit || generating || maxApplicableCredit <= 0}
                                 onClick={handleOpenApplyDialog}
                                 sx={{
                                     bgcolor: '#10b981',
@@ -507,7 +519,7 @@ const StatementOfAccountPage: React.FC = () => {
                                 )}
                             </Box>
                             <Typography variant="body2" color="text.secondary">
-                                Period: {formatDate(soaData.period.from)} - {formatDate(soaData.period.to)}
+                                Period: {formatDate(soaData.period.from)} - {formatDate(soaData.period.to)}. Current balances; preview deductions do not redeem credit. Credit note rows are informational.
                             </Typography>
                         </Box>
                         <Button
@@ -532,7 +544,7 @@ const StatementOfAccountPage: React.FC = () => {
                                     <TableCell align="right" sx={{ fontWeight: 600 }}>Amount (excl. tax)</TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 600 }}>Tax</TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 600 }}>Payment / Credit</TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 600 }}>Balance</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 600 }}>Invoice balance before wallet credits</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -662,7 +674,7 @@ const StatementOfAccountPage: React.FC = () => {
                                 {soaData.remainingCreditAfterSOA > 0 && (
                                     <TableRow sx={{ bgcolor: 'rgba(16, 185, 129, 0.04)' }}>
                                         <TableCell colSpan={7} align="right" sx={{ fontStyle: 'italic', color: '#059669', fontSize: '0.85rem' }}>
-                                            Remaining Customer Wallet Credit (Available for future):
+                                            Credit remaining after preview deduction:
                                         </TableCell>
                                         <TableCell align="right" sx={{ fontStyle: 'italic', color: '#059669', fontSize: '0.85rem', fontWeight: 600 }}>
                                             {formatCurrency(soaData.remainingCreditAfterSOA)}
@@ -695,7 +707,7 @@ const StatementOfAccountPage: React.FC = () => {
                 </DialogTitle>
                 <DialogContent dividers>
                     <Alert severity="info" sx={{ mb: 3 }}>
-                        This action will redeem the selected credit note amount against the customer's oldest outstanding invoices (FIFO).
+                        This action will redeem the selected credit note amount against the customer's oldest outstanding issued invoices across all dates (FIFO), including invoices outside this statement period.
                         The credit note balance and invoice balances will be permanently updated.
                     </Alert>
 
@@ -713,7 +725,7 @@ const StatementOfAccountPage: React.FC = () => {
                             </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant="body2" color="text.secondary">Outstanding Invoice Balance:</Typography>
+                            <Typography variant="body2" color="text.secondary">Outstanding in Selected Period:</Typography>
                             <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.accent }}>
                                 {soaData ? formatCurrency(soaData.totalOutstandingInvoices) : 'N/A'}
                             </Typography>
@@ -728,10 +740,10 @@ const StatementOfAccountPage: React.FC = () => {
                         onChange={(e) => setApplyAmount(e.target.value)}
                         inputProps={{
                             min: 0.01,
-                            max: customerCredit ? customerCredit.remainingBalance : 0,
+                            max: maxApplicableCredit,
                             step: 0.01
                         }}
-                        helperText={`Max applicable credit: ${customerCredit ? formatCurrency(customerCredit.remainingBalance) : 0}`}
+                        helperText={`Max applicable credit: ${formatCurrency(maxApplicableCredit)}`}
                         sx={{ mt: 1 }}
                     />
                 </DialogContent>
@@ -743,7 +755,7 @@ const StatementOfAccountPage: React.FC = () => {
                         variant="contained"
                         color="success"
                         onClick={handleApplyCreditSubmit}
-                        disabled={applyingCredit || !applyAmount || Number(applyAmount) <= 0}
+                        disabled={applyingCredit || !Number.isFinite(Number(applyAmount)) || Number(applyAmount) <= 0 || Number(applyAmount) > maxApplicableCredit}
                         startIcon={applyingCredit ? <CircularProgress size={18} color="inherit" /> : <CheckCircleIcon />}
                         sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}
                     >
